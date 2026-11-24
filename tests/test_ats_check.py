@@ -24,6 +24,7 @@ assert out["matchedNotLiteral"] == []
 # 6 of 9 keywords, fit 62: 0.6 * 66.7 + 0.4 * 62 = 64.8
 assert out["coverage"] == 66.7 and out["score"] == 64.8, (out["coverage"], out["score"])
 assert (out["matchedCount"], out["keywordCount"]) == (6, 9)
+assert out["wordCount"] == len(resume.split()) and 90 < out["wordCount"] < 130, out["wordCount"]
 # A real quote passes, an invented one does not.
 assert [e["found"] for e in out["evidence"]] == [True, False]
 # Education dates are ignored; the two jobs overlap by 3 months.

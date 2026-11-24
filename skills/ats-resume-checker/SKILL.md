@@ -3,7 +3,7 @@ name: ats-resume-checker
 description: "Check a resume against a job description the way an applicant tracking system (ATS) and a recruiter would. Returns a match score from 0 to 100, the job keywords found and missing, each requirement with a quote from the resume as proof, ATS readability checks, recruiter red flags (date overlaps, gaps, typos) and the fixes that raise the score most. Use when someone asks to check, scan, score or review a resume or CV for ATS, asks for an ATS score or resume match score, asks why a resume gets no interviews, or wants to tailor a resume to a job posting. Triggers: ATS resume checker, resume checker, resume scanner, ATS score, CV checker, check my resume, is my resume ATS friendly, resume keywords, match resume to job description."
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
   homepage: "https://hiretop.com/ats-resume-checker"
 ---
 
@@ -63,7 +63,7 @@ Judge only whether the text is clean and parseable. Mark each check passed or fa
 
 1. **Clear section headings**: standard sections such as Experience, Education and Skills are present and labelled.
 2. **Contact details present**: there is an email, and ideally a phone number and location.
-3. **Quantified, keyword-rich content**: the text holds relevant skills and measurable results. It fails when fewer than two bullets carry a number or a measurable result, or when the whole resume is under about 150 words.
+3. **Quantified, keyword-rich content**: the text holds relevant skills and measurable results. It fails if either is true: fewer than two bullets carry a number or a measurable result, or the whole resume is under 150 words. Two strong bullets do not rescue a resume that short. The script reports the word count in step 2; correct this check if your estimate was wrong. When the check fails, say why in a recruiter flag.
 
 Status follows the checks: 2 or 3 passed is Passed, exactly 1 is Needs work, 0 passed or garbled text is Failed.
 
@@ -108,11 +108,12 @@ Apply the output:
 
 - **`matched` and `missing`** replace your lists. Keywords in `recovered` were in the resume after all, so delete any fix that tells the candidate to add one of them.
 - **`keywordsNotInJob`** are keywords the posting does not contain, even as a synonym. Replace each with the posting's own wording, or drop it, then run the script again. A keyword may only come from the job.
-- **`matchedBySynonym`** are keywords the resume has only under another spelling (the job says "Apache Spark", the resume says "PySpark"). Keep them matched and add a Low fix to write the job's exact term next to the existing one.
+- **`matchedBySynonym`** are keywords the resume has only under another spelling (the job says "Apache Spark", the resume says "PySpark"). Keep them matched and add a Low fix to write the job's exact term next to the existing one. If the five fixes are already taken by High and Medium gaps, skip that fix and mark the keyword in the Matched line instead: `Apache Spark (written as PySpark)`.
 - **`matchedNotLiteral`** are keywords you matched on meaning that are in the resume neither as text nor as a known synonym. Keep them matched, and tell the candidate to write the exact term, because an ATS keyword filter would miss it.
 - **`evidence`**: for every quote with `found: false`, drop the quote and set every requirement that used it to Missing. One quote may back two requirements when it proves both.
-- **`dateFlags`** go into the recruiter flags with their `detail` as written, ahead of yours when the severity is equal. If that makes more than 6 flags, drop your own lowest-severity flags first.
+- **`dateFlags`** go into the recruiter flags with their `detail` as written, ahead of yours when the severity is equal. The report holds at most 6 flags in total: if there are more, drop your own lowest-severity flags first.
 - **`score`**, **`coverage`** and **`fit`** are the three numbers in the report's first two lines, and **`matchedCount`** of **`keywordCount`** is the "6 of 9" beside the coverage.
+- **`wordCount`** settles the 150-word rule of the third readability check.
 
 Delete `draft.json` and any text files you created for the script once you have the output. Leave the user's own files alone.
 

@@ -332,6 +332,9 @@ def check(resume_text, draft, today=None, job_text=None):
             if str(q).strip()
         ],
         "dateFlags": date_flags(resume_text, today or datetime.now(timezone.utc)),
+        # For the readability check: a resume under about 150 words is too
+        # sparse for a keyword filter or a recruiter.
+        "wordCount": len(resume_text.split()),
     }
     if job_norm is not None:
         # Keywords must come from the posting. One that is not in it, even as

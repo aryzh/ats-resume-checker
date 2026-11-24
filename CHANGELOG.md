@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- `ats_check.py` returns `wordCount`, which settles the 150-word rule of the readability check.
+- The readability check fails if either condition is true, and a failed check is explained in a recruiter flag.
+- When five fixes are already taken, a synonym-only match is marked in the Matched line instead of taking a fix.
+
 ## 1.1.0
 
 - `ats_check.py --job job.txt` lists keywords that are not in the job posting (`keywordsNotInJob`), so a keyword the model reworded or invented is caught.
