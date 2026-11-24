@@ -9,10 +9,16 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python: ["3.8", "3.12"]
+        include:
+          # 3.8 is the oldest version the script supports; newer runner
+          # images no longer ship it.
+          - os: ubuntu-24.04
+            python: "3.8"
+          - os: ubuntu-latest
+            python: "3.13"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
