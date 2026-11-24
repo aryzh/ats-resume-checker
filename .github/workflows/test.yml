@@ -1,0 +1,26 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.8", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Script tests
+        run: python tests/test_ats_check.py
+      - name: Sample run
+        run: python skills/ats-resume-checker/scripts/ats_check.py --resume tests/sample_resume.txt --job tests/sample_job.txt --draft tests/sample_draft.json
+      - name: Manifests are valid JSON
+        run: python -c "import json; [json.load(open(f)) for f in ('.claude-plugin/plugin.json', '.claude-plugin/marketplace.json')]"

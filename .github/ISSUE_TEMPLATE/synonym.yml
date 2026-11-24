@@ -1,0 +1,24 @@
+name: Missing synonym
+description: The checker called a keyword missing, but the resume has it under another spelling.
+title: "Synonym: "
+labels: ["synonym"]
+body:
+  - type: input
+    id: job
+    attributes:
+      label: Spelling in the job posting
+      placeholder: Kubernetes
+    validations:
+      required: true
+  - type: input
+    id: resume
+    attributes:
+      label: Spelling in the resume
+      placeholder: K8s
+    validations:
+      required: true
+  - type: textarea
+    id: note
+    attributes:
+      label: Anything else
+      description: Do not paste a real resume or personal details.

@@ -23,6 +23,7 @@ assert out["matchedBySynonym"] == ["Apache Spark", "Postgres", "Extract Transfor
 assert out["matchedNotLiteral"] == []
 # 6 of 9 keywords, fit 62: 0.6 * 66.7 + 0.4 * 62 = 64.8
 assert out["coverage"] == 66.7 and out["score"] == 64.8, (out["coverage"], out["score"])
+assert (out["matchedCount"], out["keywordCount"]) == (6, 9)
 # A real quote passes, an invented one does not.
 assert [e["found"] for e in out["evidence"]] == [True, False]
 # Education dates are ignored; the two jobs overlap by 3 months.
@@ -32,4 +33,9 @@ assert ats.check(resume, {"fit": 140})["score"] == 100.0
 # Word boundaries: "java" is not found inside "javascript".
 assert not ats.present("Java", ats.normalize("JavaScript and TypeScript"))
 assert ats.present("JS", ats.normalize("JavaScript and TypeScript"))
+# With the posting, keywords that are not in it are reported; synonyms count.
+job = "We need Python, SQL, Spark and Airflow on AWS. Postgres is a plus. ETL, dbt, Snowflake."
+with_job = ats.check(resume, dict(draft, missing=draft["missing"] + ["Kubernetes"]), job_text=job)
+assert with_job["keywordsNotInJob"] == ["Kubernetes"], with_job["keywordsNotInJob"]
+assert "keywordsNotInJob" not in out
 print("all tests passed")

@@ -1,5 +1,8 @@
 # ATS Resume Checker: open-source Claude skill
 
+[![test](https://github.com/aryzh/ats-resume-checker/actions/workflows/test.yml/badge.svg)](https://github.com/aryzh/ats-resume-checker/actions/workflows/test.yml)
+[![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+
 Check a resume against a job description and get an ATS match score, the missing keywords and the fixes that raise the score. It runs inside Claude as a skill, and the same check is free in the browser.
 
 **Try it without installing anything: [hiretop.com/ats-resume-checker](https://hiretop.com/ats-resume-checker?utm_source=github&utm_medium=readme&utm_campaign=ats-skill)** (free, no sign-up, PDF or DOCX, 5 checks a day).
@@ -18,6 +21,43 @@ An applicant tracking system (ATS) stores the text of your resume and lets recru
 | ATS readability | Whether the text has clear section headings, contact details and measurable results |
 | Recruiter red flags | Overlapping dates, employment gaps, future dates, typos, vague bullets |
 | Top fixes | Up to five changes, most important first, each with an example bullet to adapt |
+
+## Example report
+
+A fictional data engineer's resume ([`sample_resume.txt`](tests/sample_resume.txt)) checked against a Senior Data Engineer posting ([`sample_job_senior.txt`](tests/sample_job_senior.txt)), shortened here.
+
+```
+## ATS match score: 39.4 / 100 (weak match)
+
+Keyword coverage 35.7% (5 of 14) · Fit 45.0
+
+### Keywords
+Matched: Python, SQL, Apache Spark, AWS, batch pipelines
+Missing: Senior Data Engineer, Apache Airflow, dbt, Snowflake, Kafka, CI/CD, ...
+
+### Requirements
+| Requirement                        | Importance | Status  | Evidence from the resume                          |
+|------------------------------------|------------|---------|---------------------------------------------------|
+| 5+ years in data engineering       | Required   | Partial | "Data engineer with 4 years of experience ..."    |
+| Strong Python and SQL              | Required   | Met     | "Maintained Python jobs that ingest CSV feeds..." |
+| Set up CI/CD for data pipelines    | Required   | Missing | -                                                 |
+
+### ATS readability: Passed
+- [x] Clear section headings
+- [x] Contact details present
+- [ ] Quantified, keyword-rich content
+
+### Recruiter flags
+- Medium · Overlapping roles. "Jun 2021 - Jun 2023" and "Mar 2023 - Present"
+  overlap by 3 months. Fix the typo, or say the roles were concurrent.
+
+### Top fixes
+1. High · Name Airflow and dbt if you have used them.
+   Example: "Orchestrated [N] daily pipelines in Apache Airflow and modelled [N] tables in dbt."
+5. Low · Write "Apache Spark" next to PySpark.
+```
+
+The date overlap and the "Apache Spark" note come from the script, which checks both on every run.
 
 ## Install the skill
 
@@ -68,13 +108,15 @@ A language model can call a keyword missing when it is in the text, or quote a l
 
 - A keyword marked missing that is in the resume, directly or as a synonym, moves to matched.
 - Every evidence quote is searched for in the resume. A quote that is not there is dropped, and the requirement becomes Missing.
+- A keyword in the resume only under another spelling ("PySpark" for "Apache Spark") is reported, so you can write the job's exact term.
+- A keyword that is not in the job posting at all is reported, so the model cannot pad the list with its own wording.
 - Job dates are parsed for overlaps, gaps, future dates and ranges that run backwards.
 - The final score is computed from the corrected keyword lists.
 
 The script uses the Python standard library and sends nothing anywhere. You can run it yourself:
 
 ```bash
-python3 skills/ats-resume-checker/scripts/ats_check.py --resume tests/sample_resume.txt --draft tests/sample_draft.json
+python3 skills/ats-resume-checker/scripts/ats_check.py --resume tests/sample_resume.txt --job tests/sample_job.txt --draft tests/sample_draft.json
 ```
 
 ## ATS resume checkers by role
@@ -118,7 +160,13 @@ It can reword and reorder what is already there. The skill is told never to add 
 
 ## Contributing
 
-Synonym groups are the easiest place to help. If the checker called a keyword missing when your resume had it under another spelling, open an issue with both spellings, or add a group to `SYNONYM_GROUPS` in `ats_check.py`.
+Synonym groups are the easiest place to help. If the checker called a keyword missing when your resume had it under another spelling, [open a synonym issue](https://github.com/aryzh/ats-resume-checker/issues/new?template=synonym.yml) with both spellings, or add a group to `SYNONYM_GROUPS` in `ats_check.py`.
+
+```bash
+python3 tests/test_ats_check.py
+```
+
+Changes are listed in the [changelog](CHANGELOG.md).
 
 ## Licence
 

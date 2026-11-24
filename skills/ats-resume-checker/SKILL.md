@@ -3,7 +3,7 @@ name: ats-resume-checker
 description: "Check a resume against a job description the way an applicant tracking system (ATS) and a recruiter would. Returns a match score from 0 to 100, the job keywords found and missing, each requirement with a quote from the resume as proof, ATS readability checks, recruiter red flags (date overlaps, gaps, typos) and the fixes that raise the score most. Use when someone asks to check, scan, score or review a resume or CV for ATS, asks for an ATS score or resume match score, asks why a resume gets no interviews, or wants to tailor a resume to a job posting. Triggers: ATS resume checker, resume checker, resume scanner, ATS score, CV checker, check my resume, is my resume ATS friendly, resume keywords, match resume to job description."
 license: MIT
 metadata:
-  version: "1.0.1"
+  version: "1.1.0"
   homepage: "https://hiretop.com/ats-resume-checker"
 ---
 
@@ -39,7 +39,7 @@ Be strict and use the full range. 90 to 100 is near perfect, 70 to 89 strong, 50
 
 ### Keywords (at most 20 in total)
 
-Take the most important concrete keywords from the job posting only: hard skills, tools, technologies, frameworks, platforms, certifications, methodologies and the role title. Use the job's exact wording, most critical first.
+Take the most important concrete keywords from the job posting only: hard skills, tools, technologies, frameworks, platforms, certifications, methodologies and the role title. Use the job's exact wording, most critical first. When the posting joins terms ("batch and streaming pipelines"), keep the phrase as written or take the single words that carry it ("streaming"); do not build a phrase the posting never uses.
 
 Leave out academic degrees, years-of-experience phrases ("5+ years"), soft skills (communication, teamwork, leadership) and filler (responsibilities, stakeholders).
 
@@ -67,7 +67,7 @@ Judge only whether the text is clean and parseable. Mark each check passed or fa
 
 Status follows the checks: 2 or 3 passed is Passed, exactly 1 is Needs work, 0 passed or garbled text is Failed.
 
-### Recruiter flags (0 to 5)
+### Recruiter flags (0 to 5 of your own)
 
 Things a recruiter notices in a quick scan that could cost an interview: typos or inconsistent spelling, unclear or inflated titles, location or work authorisation against the job, missing contact details, vague bullets with no results, an overly long resume. Give each a severity (High, Medium, Low), a short title and one sentence that names the exact issue and quotes the typo or the vague phrase.
 
@@ -81,16 +81,16 @@ The actions that would raise the score most, ordered High, then Medium, then Low
 - **Medium**: align title wording, add quantified impact, add a missing section.
 - **Low**: polish, such as spelling out an acronym.
 
-Each fix names the actual gap. Give a title of up to 8 words in the imperative, and one sentence on what to change and why. For High and Medium fixes that add or rewrite content, add one example bullet of up to 25 words that starts with an action verb and uses square-bracket placeholders for facts only the candidate knows ("[X]%", "[team size]"). Never fill in a real number, employer or outcome yourself.
+Each fix names the actual gap. One fix may cover two or three missing keywords that belong together, such as an orchestrator and a modelling tool. Give a title of up to 8 words in the imperative, and one sentence on what to change and why. For High and Medium fixes that add or rewrite content, add one example bullet of up to 25 words that starts with an action verb and uses square-bracket placeholders for facts only the candidate knows ("[X]%", "[team size]"). Never fill in a real number, employer or outcome yourself.
 
 A fix may ask the candidate to add a skill only if they have it. Say so when the skill is missing from the resume: "If you have used Airflow, name it."
 
 ## Step 2. Verify with the script
 
-The script is `scripts/ats_check.py` in this skill's own folder, next to this file. That is not the user's working directory, so call it by its full path. If the resume is not already a plain-text file, save its text to one. Write `draft.json` beside it, then run:
+The script is `scripts/ats_check.py` in this skill's own folder, next to this file. That is not the user's working directory, so call it by its full path: the base directory shown when this skill loaded, or the folder you read this file from. If the resume or the job posting is not already a plain-text file, save its text to one. Write `draft.json` beside them, then run:
 
 ```bash
-python3 <this skill's folder>/scripts/ats_check.py --resume resume.txt --draft draft.json
+python3 <this skill's folder>/scripts/ats_check.py --resume resume.txt --job job.txt --draft draft.json
 ```
 
 `draft.json` holds your fit score, your two keyword lists and every evidence quote, each copied exactly as it appears in your requirements table:
@@ -107,11 +107,14 @@ python3 <this skill's folder>/scripts/ats_check.py --resume resume.txt --draft d
 Apply the output:
 
 - **`matched` and `missing`** replace your lists. Keywords in `recovered` were in the resume after all, so delete any fix that tells the candidate to add one of them.
+- **`keywordsNotInJob`** are keywords the posting does not contain, even as a synonym. Replace each with the posting's own wording, or drop it, then run the script again. A keyword may only come from the job.
 - **`matchedBySynonym`** are keywords the resume has only under another spelling (the job says "Apache Spark", the resume says "PySpark"). Keep them matched and add a Low fix to write the job's exact term next to the existing one.
 - **`matchedNotLiteral`** are keywords you matched on meaning that are in the resume neither as text nor as a known synonym. Keep them matched, and tell the candidate to write the exact term, because an ATS keyword filter would miss it.
 - **`evidence`**: for every quote with `found: false`, drop the quote and set every requirement that used it to Missing. One quote may back two requirements when it proves both.
 - **`dateFlags`** go into the recruiter flags with their `detail` as written, ahead of yours when the severity is equal. If that makes more than 6 flags, drop your own lowest-severity flags first.
-- **`score`**, **`coverage`** and **`fit`** are the three numbers in the report's first two lines.
+- **`score`**, **`coverage`** and **`fit`** are the three numbers in the report's first two lines, and **`matchedCount`** of **`keywordCount`** is the "6 of 9" beside the coverage.
+
+Delete `draft.json` and any text files you created for the script once you have the output. Leave the user's own files alone.
 
 If you cannot run scripts, do the same by hand:
 

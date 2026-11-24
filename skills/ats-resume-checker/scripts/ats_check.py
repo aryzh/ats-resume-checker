@@ -12,8 +12,10 @@ script then checks the parts that should not depend on a model's judgment:
 - the final score is computed as 60% keyword coverage + 40% fit.
 
 Usage:
-    python3 ats_check.py --resume resume.txt --draft draft.json
+    python3 ats_check.py --resume resume.txt --job job.txt --draft draft.json
     python3 ats_check.py --resume resume.txt < draft.json
+
+With --job, keywords that are not in the posting are listed as keywordsNotInJob.
 
 draft.json:
     {"fit": 68,
@@ -281,7 +283,7 @@ def date_flags(resume_text, today):
 MAX_KEYWORDS = 20
 
 
-def check(resume_text, draft, today=None):
+def check(resume_text, draft, today=None, job_text=None):
     resume_norm = normalize(resume_text)
     matched = [k for k in draft.get("matched", []) if str(k).strip()]
     missing = [k for k in draft.get("missing", []) if str(k).strip()]
@@ -306,10 +308,13 @@ def check(resume_text, draft, today=None):
     score = round(0.6 * coverage + 0.4 * fit, 1) if total else round(fit, 1)
 
     resume_words = alnum_words(resume_text)
-    return {
+    job_norm = normalize(job_text) if job_text else None
+    result = {
         "score": score,
         "fit": fit,
         "coverage": coverage,
+        "matchedCount": len(matched),
+        "keywordCount": total,
         "matched": matched,
         "missing": missing,
         "recovered": recovered,
@@ -328,17 +333,28 @@ def check(resume_text, draft, today=None):
         ],
         "dateFlags": date_flags(resume_text, today or datetime.now(timezone.utc)),
     }
+    if job_norm is not None:
+        # Keywords must come from the posting. One that is not in it, even as
+        # a synonym, was reworded or invented by the model.
+        result["keywordsNotInJob"] = [k for k in matched + missing if not present(k, job_norm)]
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser(description="Verify a drafted ATS resume check.")
     parser.add_argument("--resume", required=True, help="plain-text resume file")
     parser.add_argument("--draft", help="JSON draft file (default: stdin)")
+    parser.add_argument("--job", help="plain-text job posting; adds a check that keywords come from it")
     args = parser.parse_args()
     with open(args.resume, encoding="utf-8") as fh:
         resume_text = fh.read()
+    job_text = None
+    if args.job:
+        with open(args.job, encoding="utf-8") as fh:
+            job_text = fh.read()
     raw = open(args.draft, encoding="utf-8").read() if args.draft else sys.stdin.read()
-    json.dump(check(resume_text, json.loads(raw)), sys.stdout, indent=2, ensure_ascii=False)
+    result = check(resume_text, json.loads(raw), job_text=job_text)
+    json.dump(result, sys.stdout, indent=2, ensure_ascii=False)
     sys.stdout.write("\n")
 
 

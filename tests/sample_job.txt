@@ -1,0 +1,14 @@
+Data Engineer
+
+We are hiring a Data Engineer for our retail analytics team.
+
+Responsibilities
+- Build and maintain ETL pipelines with Apache Spark
+- Schedule workflows in Airflow and model data with dbt
+- Keep the Snowflake warehouse fast and tidy
+
+Requirements
+- 3+ years of data engineering
+- Strong Python and SQL
+- Postgres or another relational database
+- AWS
