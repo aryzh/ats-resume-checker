@@ -139,6 +139,12 @@ def present(keyword, resume_norm):
     )
 
 
+def literal(keyword, resume_norm):
+    """True if the keyword itself, not a synonym, occurs in the resume."""
+    kw = normalize(keyword)
+    return bool(kw) and bool(re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", resume_norm))
+
+
 def alnum_words(text):
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
@@ -307,8 +313,13 @@ def check(resume_text, draft, today=None):
         "matched": matched,
         "missing": missing,
         "recovered": recovered,
-        # Matched on meaning by the model, not found as literal text. A keyword
-        # filter in an ATS would miss these: worth writing them out in the resume.
+        # In the resume only under another spelling (job says "Apache Spark",
+        # resume says "PySpark"). A strict keyword filter can miss these.
+        "matchedBySynonym": [
+            k for k in matched if present(k, resume_norm) and not literal(k, resume_norm)
+        ],
+        # Matched on meaning by the model, not found as text or as a known
+        # synonym. A keyword filter in an ATS would miss these.
         "matchedNotLiteral": [k for k in matched if not present(k, resume_norm)],
         "evidence": [
             {"quote": q, "found": evidence_in_resume(q, resume_words)}

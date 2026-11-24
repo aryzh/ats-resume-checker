@@ -3,7 +3,7 @@ name: ats-resume-checker
 description: "Check a resume against a job description the way an applicant tracking system (ATS) and a recruiter would. Returns a match score from 0 to 100, the job keywords found and missing, each requirement with a quote from the resume as proof, ATS readability checks, recruiter red flags (date overlaps, gaps, typos) and the fixes that raise the score most. Use when someone asks to check, scan, score or review a resume or CV for ATS, asks for an ATS score or resume match score, asks why a resume gets no interviews, or wants to tailor a resume to a job posting. Triggers: ATS resume checker, resume checker, resume scanner, ATS score, CV checker, check my resume, is my resume ATS friendly, resume keywords, match resume to job description."
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   homepage: "https://hiretop.com/ats-resume-checker"
 ---
 
@@ -26,7 +26,7 @@ Base every judgment on the two texts. Never invent a skill, employer, title, num
 
 Work through these parts in order.
 
-### Fit (0 to 100, one decimal)
+### Fit (0 to 100)
 
 Weigh roughly:
 
@@ -47,7 +47,7 @@ Split them into matched and missing. Treat well-known synonyms and acronyms as e
 
 ### Requirements (5 to 10)
 
-Break the posting into its most important requirements: skills, experience, scope, domain, languages, location. Write each as a short phrase in the job's wording and mark it Required or Nice to have.
+Break the posting into its most important requirements: skills, experience, scope, domain, languages, location. Write each as a short phrase in the job's wording and mark it Required or Nice to have. Duties listed under responsibilities count as Required unless the posting calls them optional. When one line of the posting names several skills and the resume has only some of them, keep it as one requirement and mark it Partial.
 
 Give each a status:
 
@@ -63,7 +63,7 @@ Judge only whether the text is clean and parseable. Mark each check passed or fa
 
 1. **Clear section headings**: standard sections such as Experience, Education and Skills are present and labelled.
 2. **Contact details present**: there is an email, and ideally a phone number and location.
-3. **Quantified, keyword-rich content**: the text holds relevant skills and measurable results. Very short or sparse text fails.
+3. **Quantified, keyword-rich content**: the text holds relevant skills and measurable results. It fails when fewer than two bullets carry a number or a measurable result, or when the whole resume is under about 150 words.
 
 Status follows the checks: 2 or 3 passed is Passed, exactly 1 is Needs work, 0 passed or garbled text is Failed.
 
@@ -75,7 +75,7 @@ Leave dates to the script in step 2: overlaps, gaps, future dates and short tenu
 
 ### Top fixes (at most 5)
 
-The actions that would raise the score most, ordered High, then Medium, then Low: 1 to 3 High, 1 to 3 Medium, 0 to 2 Low.
+The actions that would raise the score most, ordered High, then Medium, then Low. Give at most 5 in total: up to 3 High, up to 3 Medium, up to 2 Low. Skip a level when the resume has no gap of that kind.
 
 - **High**: a missing required skill or keyword, or a major title or experience mismatch.
 - **Medium**: align title wording, add quantified impact, add a missing section.
@@ -87,13 +87,13 @@ A fix may ask the candidate to add a skill only if they have it. Say so when the
 
 ## Step 2. Verify with the script
 
-Save the resume text to a file and run:
+The script is `scripts/ats_check.py` in this skill's own folder, next to this file. That is not the user's working directory, so call it by its full path. If the resume is not already a plain-text file, save its text to one. Write `draft.json` beside it, then run:
 
 ```bash
-python3 scripts/ats_check.py --resume resume.txt --draft draft.json
+python3 <this skill's folder>/scripts/ats_check.py --resume resume.txt --draft draft.json
 ```
 
-`draft.json` holds your fit score, your two keyword lists and every evidence quote:
+`draft.json` holds your fit score, your two keyword lists and every evidence quote, each copied exactly as it appears in your requirements table:
 
 ```json
 {
@@ -107,10 +107,11 @@ python3 scripts/ats_check.py --resume resume.txt --draft draft.json
 Apply the output:
 
 - **`matched` and `missing`** replace your lists. Keywords in `recovered` were in the resume after all, so delete any fix that tells the candidate to add one of them.
-- **`matchedNotLiteral`** are keywords you matched on meaning that are not written in the resume. Keep them matched, and tell the candidate to write the exact term, because an ATS keyword filter would miss it.
-- **`evidence`**: for every quote with `found: false`, drop the quote and set that requirement to Missing.
-- **`dateFlags`** go into the recruiter flags, ahead of yours when the severity is equal. Keep at most 6 flags.
-- **`score`** is the match score to report.
+- **`matchedBySynonym`** are keywords the resume has only under another spelling (the job says "Apache Spark", the resume says "PySpark"). Keep them matched and add a Low fix to write the job's exact term next to the existing one.
+- **`matchedNotLiteral`** are keywords you matched on meaning that are in the resume neither as text nor as a known synonym. Keep them matched, and tell the candidate to write the exact term, because an ATS keyword filter would miss it.
+- **`evidence`**: for every quote with `found: false`, drop the quote and set every requirement that used it to Missing. One quote may back two requirements when it proves both.
+- **`dateFlags`** go into the recruiter flags with their `detail` as written, ahead of yours when the severity is equal. If that makes more than 6 flags, drop your own lowest-severity flags first.
+- **`score`**, **`coverage`** and **`fit`** are the three numbers in the report's first two lines.
 
 If you cannot run scripts, do the same by hand:
 
@@ -151,11 +152,13 @@ Missing: Airflow, dbt, Snowflake
 
 Bands for the heading: 75 and above is a strong match, 50 to 74.9 a partial match, below 50 a weak match.
 
-End with one sentence that is specific to this resume.
+In the requirements table, leave the evidence cell of a Missing row as a dash.
+
+End with one sentence that is specific to this resume, then one line offering to check again after edits. Add nothing else after the report.
 
 ## After the report
 
-- Offer to check again once the candidate has edited the resume, and compare the new score with the old one.
+- When the candidate comes back with an edited resume, run the whole check again and compare the new score with the old one.
 - If asked to rewrite the resume, reword and reorder what is there. Do not add skills, tools, titles or numbers the candidate has not confirmed.
 - One resume is checked against one job. For several jobs, run the check once for each and report the scores side by side.
-- The score measures the match with this posting. It does not rate the candidate, and no checker can promise an interview.
+- If the candidate asks what the score means: it measures the match with this posting. It does not rate the candidate, and no checker can promise an interview.

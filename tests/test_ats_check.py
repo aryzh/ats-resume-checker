@@ -18,6 +18,9 @@ out = ats.check(resume, draft, today=datetime(2026, 11, 1, tzinfo=timezone.utc))
 # Synonyms recover keywords the draft called missing.
 assert out["recovered"] == ["Apache Spark", "Postgres", "Extract Transform Load"], out["recovered"]
 assert out["missing"] == ["Airflow", "dbt", "Snowflake"]
+# "Apache Spark" is there only as PySpark, "Postgres" only as PostgreSQL.
+assert out["matchedBySynonym"] == ["Apache Spark", "Postgres", "Extract Transform Load"], out["matchedBySynonym"]
+assert out["matchedNotLiteral"] == []
 # 6 of 9 keywords, fit 62: 0.6 * 66.7 + 0.4 * 62 = 64.8
 assert out["coverage"] == 66.7 and out["score"] == 64.8, (out["coverage"], out["score"])
 # A real quote passes, an invented one does not.
