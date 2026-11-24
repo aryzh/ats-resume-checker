@@ -1,0 +1,18 @@
+{
+  "name": "ats-resume-checker",
+  "owner": {
+    "name": "Hiretop",
+    "url": "https://hiretop.com/ats-resume-checker"
+  },
+  "plugins": [
+    {
+      "name": "ats-resume-checker",
+      "description": "Check a resume against a job description like an ATS and a recruiter: match score, missing keywords, requirements with evidence, readability checks, red flags and fixes.",
+      "category": "productivity",
+      "source": "./"
+    }
+  ],
+  "metadata": {
+    "description": "ATS resume checker as a Claude skill. Single-plugin marketplace."
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "fit": 62,
+  "matched": ["Python", "SQL", "AWS"],
+  "missing": ["Apache Spark", "Postgres", "Extract Transform Load", "Airflow", "dbt", "Snowflake"],
+  "evidence": [
+    "Built ETL pipelines in PySpark that load 3M+ records a day into Amazon Redshift",
+    "Led a team of twelve engineers across three countries"
+  ]
+}

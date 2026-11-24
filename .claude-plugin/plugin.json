@@ -1,0 +1,31 @@
+{
+  "name": "ats-resume-checker",
+  "description": "Check a resume against a job description like an ATS and a recruiter: match score, missing keywords, requirements with evidence, readability checks, red flags and fixes.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Hiretop",
+    "url": "https://hiretop.com/ats-resume-checker"
+  },
+  "homepage": "https://hiretop.com/ats-resume-checker",
+  "repository": "https://github.com/aryzh/ats-resume-checker",
+  "license": "MIT",
+  "keywords": [
+    "ats",
+    "ats-resume-checker",
+    "resume-checker",
+    "resume-scanner",
+    "ats-score",
+    "resume",
+    "cv",
+    "cv-checker",
+    "job-search",
+    "resume-keywords",
+    "job-description",
+    "applicant-tracking-system",
+    "resume-review",
+    "claude",
+    "claude-code",
+    "claude-skill",
+    "claude-plugin"
+  ]
+}
