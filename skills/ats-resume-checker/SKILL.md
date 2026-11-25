@@ -3,7 +3,7 @@ name: ats-resume-checker
 description: "Check a resume against a job description the way an applicant tracking system (ATS) and a recruiter would. Returns a match score from 0 to 100, the job keywords found and missing, each requirement with a quote from the resume as proof, ATS readability checks, recruiter red flags (date overlaps, gaps, typos) and the fixes that raise the score most. Use when someone asks to check, scan, score or review a resume or CV for ATS, asks for an ATS score or resume match score, asks why a resume gets no interviews, or wants to tailor a resume to a job posting. Triggers: ATS resume checker, resume checker, resume scanner, ATS score, CV checker, check my resume, is my resume ATS friendly, resume keywords, match resume to job description."
 license: MIT
 metadata:
-  version: "1.1.1"
+  version: "1.2.0"
   homepage: "https://hiretop.com/ats-resume-checker"
 ---
 
@@ -18,7 +18,18 @@ This is the method behind the free web checker at https://hiretop.com/ats-resume
 1. **The resume as text.** If the user gives a PDF or DOCX, read it and work with the extracted text. An ATS also works with extracted text, so judge the text and say nothing about fonts, colours or columns you cannot see.
 2. **The full job posting.** A job title alone is too little to check against. If the user gives under about 40 characters, or only a link you cannot open, ask them to paste the posting with its responsibilities and requirements.
 
-If the resume text is nearly empty or garbled, stop and say so: the file is probably a scan or an image, and an ATS will not read it either.
+If the resume text is nearly empty or garbled (a few words, raw PDF markers, codes such as "(cid:12)"), stop and give no score. Say what the file contains and that an ATS would get the same. Then tell the user how to fix it: export the original again as a text-based PDF or DOCX and check that the text can be selected and copied, or paste the resume text into the chat. The script reports the same condition as `unreadable`; if it is set, discard the draft and stop.
+
+### No job posting
+
+When the user asks whether a resume is "ATS friendly" and has no job in mind, do the part that needs no job, and say what is left out:
+
+1. Run the three readability checks and write your recruiter flags.
+2. Run the script with the resume only, `--resume resume.txt` and `{}` as the draft, for the date flags and the word count. It returns no score in this mode.
+3. Report the readability status, the flags and up to 4 fixes. Do not print a score, a keyword list or a requirements table.
+4. Say in one line that this covers the text only: fonts, columns and tables cannot be judged from text, and a match score needs a job posting. Offer the full check when they have one.
+
+When the user names a role but gives no posting ("my ATS score for Account Director"), ask for the posting and explain that two jobs with one title can ask for different things. Do not write a posting yourself.
 
 Base every judgment on the two texts. Never invent a skill, employer, title, number or date that is not in the resume.
 
@@ -37,9 +48,11 @@ Weigh roughly:
 
 Be strict and use the full range. 90 to 100 is near perfect, 70 to 89 strong, 50 to 69 partial with several key requirements missing, 30 to 49 weak, 0 to 29 poor or the wrong field. Most real resumes land between 40 and 75. Penalise missing required skills heavily and missing nice-to-haves only slightly.
 
-### Keywords (at most 20 in total)
+### Keywords (12 to 20 for a full posting)
 
 Take the most important concrete keywords from the job posting only: hard skills, tools, technologies, frameworks, platforms, certifications, methodologies and the role title. Use the job's exact wording, most critical first. When the posting joins terms ("batch and streaming pipelines"), keep the phrase as written or take the single words that carry it ("streaming"); do not build a phrase the posting never uses.
+
+Pick the terms a recruiter would type into a search: what the candidate must know or have done. Leave out who the role works with ("partner with solutions engineers"), places and languages, which belong in the requirements. A short posting may yield fewer than 12. Do not pad the list, and do not trim it to flatter the score: coverage is 60% of the result.
 
 Leave out academic degrees, years-of-experience phrases ("5+ years"), soft skills (communication, teamwork, leadership) and filler (responsibilities, stakeholders).
 
@@ -67,11 +80,13 @@ Judge only whether the text is clean and parseable. Mark each check passed or fa
 
 Status follows the checks: 2 or 3 passed is Passed, exactly 1 is Needs work, 0 passed or garbled text is Failed.
 
+Readability is not part of the score. When a check fails, say so in the report, so the candidate does not expect the number to move after fixing headings.
+
 ### Recruiter flags (0 to 5 of your own)
 
 Things a recruiter notices in a quick scan that could cost an interview: typos or inconsistent spelling, unclear or inflated titles, location or work authorisation against the job, missing contact details, vague bullets with no results, an overly long resume. Give each a severity (High, Medium, Low), a short title and one sentence that names the exact issue and quotes the typo or the vague phrase.
 
-Leave dates to the script in step 2: overlaps, gaps, future dates and short tenures.
+Leave dates to the script in step 2: overlaps, gaps, future dates and short tenures. It tolerates an overlap of up to 2 months between two dated roles, since a handover is normal. If you see a date problem the script did not report, such as an overlap of exactly 2 months at two different employers, you may add one Low flag for it and say it is worth a second look.
 
 ### Top fixes (at most 5)
 
@@ -82,6 +97,8 @@ The actions that would raise the score most, ordered High, then Medium, then Low
 - **Low**: polish, such as spelling out an acronym.
 
 Each fix names the actual gap. One fix may cover two or three missing keywords that belong together, such as an orchestrator and a modelling tool. Give a title of up to 8 words in the imperative, and one sentence on what to change and why. For High and Medium fixes that add or rewrite content, add one example bullet of up to 25 words that starts with an action verb and uses square-bracket placeholders for facts only the candidate knows ("[X]%", "[team size]"). Never fill in a real number, employer or outcome yourself.
+
+When the job's title is above the candidate's, never suggest claiming it. The fix is to show the scope that title implies, if the candidate had it: named accounts, team size, budget, deal size.
 
 A fix may ask the candidate to add a skill only if they have it. Say so when the skill is missing from the resume: "If you have used Airflow, name it."
 
@@ -106,6 +123,7 @@ python3 <this skill's folder>/scripts/ats_check.py --resume resume.txt --job job
 
 Apply the output:
 
+- **`unreadable`**, when not null, means the resume text cannot be checked. Stop as described under "What you need".
 - **`matched` and `missing`** replace your lists. Keywords in `recovered` were in the resume after all, so delete any fix that tells the candidate to add one of them.
 - **`keywordsNotInJob`** are keywords the posting does not contain, even as a synonym. Replace each with the posting's own wording, or drop it, then run the script again. A keyword may only come from the job.
 - **`matchedBySynonym`** are keywords the resume has only under another spelling (the job says "Apache Spark", the resume says "PySpark"). Keep them matched and add a Low fix to write the job's exact term next to the existing one. If the five fixes are already taken by High and Medium gaps, skip that fix and mark the keyword in the Matched line instead: `Apache Spark (written as PySpark)`.
@@ -133,6 +151,8 @@ Use this layout. Keep every line short.
 
 Keyword coverage 66.7% (6 of 9) · Fit 62.0
 
+Editing will not fix: based in Austin, TX while the job requires London or Munich.
+
 ### Keywords
 Matched: Python, SQL, AWS, Apache Spark, Postgres, ETL
 Missing: Airflow, dbt, Snowflake
@@ -156,9 +176,11 @@ Missing: Airflow, dbt, Snowflake
 
 Bands for the heading: 75 and above is a strong match, 50 to 74.9 a partial match, below 50 a weak match.
 
+The "Editing will not fix" line appears only when a requirement fails on a fact about the candidate that rewording cannot change: location or work authorisation, years of experience well short of the minimum, a different market segment or industry, a required language. Name each one in a few words. A candidate should learn this before spending an evening on keywords. Leave the line out when there is no such blocker.
+
 In the requirements table, leave the evidence cell of a Missing row as a dash.
 
-End with one sentence that is specific to this resume, then one line offering to check again after edits. Add nothing else after the report.
+End with one sentence that is specific to this resume: what is strong in it, and whether this posting is a realistic target. When the blockers above make it a poor target, say which kind of role the resume does fit. Then add one line offering to check again after edits. Add nothing else after the report.
 
 ## After the report
 

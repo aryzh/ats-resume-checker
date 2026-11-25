@@ -39,4 +39,35 @@ job = "We need Python, SQL, Spark and Airflow on AWS. Postgres is a plus. ETL, d
 with_job = ats.check(resume, dict(draft, missing=draft["missing"] + ["Kubernetes"]), job_text=job)
 assert with_job["keywordsNotInJob"] == ["Kubernetes"], with_job["keywordsNotInJob"]
 assert "keywordsNotInJob" not in out
+# "C" is not inside "C++" or "C#"; "Go" matches "Golang" through the synonym table.
+langs = ats.normalize("Skills: C++, C#, .NET, Node.js, Golang, React")
+assert [k for k in ["C++", "C#", ".NET", "Node.js", "Go", "C", "R"] if ats.present(k, langs)] == ["C++", "C#", ".NET", "Node.js", "Go"]
+assert ats.present("C", ats.normalize("C, C++ and Python."))
+# A repeated keyword counts once; one listed on both sides stays matched.
+dup = ats.check("python sql", {"fit": 50, "matched": ["Python", "python"], "missing": ["SQL", "Python", "Go", 7, None]})
+assert (dup["matched"], dup["missing"]) == (["Python", "SQL"], ["Go"]), dup
+# A ligature from a PDF does not break a quote; a paraphrase still fails.
+lig = "Built ef\ufb01cient pipelines for \ufb01nance reporting teams"
+assert ats.check(lig, {"evidence": ["Built efficient pipelines for finance reporting teams"]})["evidence"][0]["found"]
+assert not ats.check(lig, {"evidence": ["Created fast data flows for the accounting department"]})["evidence"][0]["found"]
+# Bad input is reported, not a traceback.
+for bad in ({"fit": "high"}, {"fit": None}, [1, 2]):
+    try:
+        ats.check("x", bad)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(bad)
+# An education section under another name is not read as a job.
+school = "EXPERIENCE\nRep, A 2018 - 2020\nSchooling\nBA, Example University, 2014 - 2019"
+assert ats.date_flags(school, datetime(2026, 11, 1, tzinfo=timezone.utc)) == []
+# No job: no score, but dates and word count still come back.
+solo = ats.check(resume, {})
+assert solo["score"] is None and solo["fit"] is None and solo["wordCount"] > 90 and solo["unreadable"] is None
+assert out["unreadable"] is None
+# A failed PDF export is named as unreadable.
+assert ats.unreadable("J0RD4N L33\n%PDF-1.7 obj <<>> endobj\n(cid:12)(cid:44)(cid:9) (cid:3)")
+assert "PDF" in ats.unreadable("%PDF-1.7 " + "word " * 40)
+assert "glyph" in ats.unreadable("(cid:12) " * 30 + "name " * 40)
+assert ats.unreadable("12 34 56 %% ## " * 20)
 print("all tests passed")

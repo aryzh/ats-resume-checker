@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0
+
+Found by running the skill on a sales resume, an unreadable file and requests with no job posting.
+
+- The report has an "Editing will not fix" line for blockers that rewording cannot change: location, years of experience, market segment, a required language. The closing sentence says whether the posting is a realistic target.
+- A readability-only mode for "is my resume ATS friendly" with no job posting: checks, flags and fixes, no score.
+- The script names an unreadable resume (`unreadable`) and returns no score when there is no job.
+- Keywords: guidance on what counts, so the list is not padded with minor duties. A repeated keyword counts once.
+- "C" is no longer found inside "C++" or "C#". "Go" matches "Golang".
+- A PDF ligature no longer breaks an evidence quote.
+- An education section called "Schooling" or "Academic background" is not read as a job.
+- The skill states the 2-month overlap tolerance and that readability is not part of the score.
+- Bad input gives a one-line error instead of a traceback.
+
 ## 1.1.1
 
 - `ats_check.py` returns `wordCount`, which settles the 150-word rule of the readability check.

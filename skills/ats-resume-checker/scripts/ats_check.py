@@ -30,6 +30,7 @@ import difflib
 import json
 import re
 import sys
+import unicodedata
 from datetime import datetime, timezone
 
 # Interchangeable spellings (lower-case, normalised). If the job uses one form
@@ -47,6 +48,7 @@ SYNONYM_GROUPS = [
     ["ci cd", "continuous integration", "continuous delivery"],
     ["github actions", "gha"],
     ["node.js", "nodejs", "node js", "node"],
+    ["go", "golang"],
     ["next.js", "nextjs", "next js"],
 
     # --- ML / AI / Data: core terms ---
@@ -122,8 +124,15 @@ SYNONYM_GROUPS = [
 
 
 def normalize(text):
-    """Lower-case and collapse everything except letters, digits and + # . to spaces."""
+    """Lower-case and collapse everything except letters, digits and + # . to spaces.
+    NFKC first, so PDF ligatures such as "fi" in one glyph become plain letters."""
+    text = unicodedata.normalize("NFKC", str(text))
     return re.sub(r"[^a-z0-9+#.]+", " ", text.lower()).strip()
+
+
+def _find(form, haystack):
+    # "+" and "#" close the boundary too, so "C" is not found inside "C++" or "C#".
+    return re.search(rf"(?<![a-z0-9]){re.escape(form)}(?![a-z0-9+#])", haystack) is not None
 
 
 def present(keyword, resume_norm):
@@ -135,19 +144,17 @@ def present(keyword, resume_norm):
     for group in SYNONYM_GROUPS:
         if kw in group:
             forms.update(group)
-    return any(
-        re.search(rf"(?<![a-z0-9]){re.escape(form)}(?![a-z0-9])", resume_norm)
-        for form in forms
-    )
+    return any(_find(form, resume_norm) for form in forms)
 
 
 def literal(keyword, resume_norm):
     """True if the keyword itself, not a synonym, occurs in the resume."""
     kw = normalize(keyword)
-    return bool(kw) and bool(re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", resume_norm))
+    return bool(kw) and _find(kw, resume_norm)
 
 
 def alnum_words(text):
+    text = unicodedata.normalize("NFKC", str(text))
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
 
@@ -204,7 +211,12 @@ def parse_month(token, is_end):
 
 def education_span(text):
     """Character span of the education section, whose dates are not jobs."""
-    head = re.search(r"\bEDUCATION\b", text) or re.search(r"\bEducation\b", text)
+    # Resumes also call this section Schooling, Academic background and so on.
+    head = (
+        re.search(r"\bEDUCATION\b", text)
+        or re.search(r"\bEducation\b", text)
+        or re.search(r"\b(Schooling|Academic (?:background|history|qualifications)|Academics|Studies)\b", text, re.IGNORECASE)
+    )
     if not head:
         return None
     nxt = next(
@@ -279,14 +291,53 @@ def date_flags(resume_text, today):
     return flags
 
 
+def unreadable(resume_text):
+    """Say why a resume cannot be checked, or return None. Catches the usual
+    results of a failed PDF export: almost no text, raw PDF syntax, glyph codes."""
+    words = resume_text.split()
+    if len(words) < 30:
+        return f"only {len(words)} words of text"
+    if re.search(r"%PDF-\d|\bendobj\b|\bendstream\b", resume_text):
+        return "raw PDF syntax instead of text"
+    codes = len(re.findall(r"\(cid:\d+\)", resume_text))
+    if codes > 5 and codes > len(words) / 10:
+        return "glyph codes such as (cid:12) instead of letters"
+    letters = sum(c.isalpha() for c in resume_text)
+    if letters < 0.5 * sum(not c.isspace() for c in resume_text):
+        return "mostly symbols and digits, few letters"
+    return None
+
+
 # --- Check ------------------------------------------------------------------
 MAX_KEYWORDS = 20
 
 
+def _keywords(value, seen):
+    out = []
+    for k in value if isinstance(value, list) else []:
+        if not isinstance(k, str) or not normalize(k) or normalize(k) in seen:
+            continue
+        seen.add(normalize(k))
+        out.append(k.strip())
+    return out
+
+
+def _fit(value):
+    try:
+        return min(100.0, max(0.0, float(value)))
+    except (TypeError, ValueError):
+        raise ValueError(f"fit must be a number from 0 to 100, got {value!r}")
+
+
 def check(resume_text, draft, today=None, job_text=None):
+    if not isinstance(draft, dict):
+        raise ValueError("the draft must be a JSON object with fit, matched, missing and evidence")
     resume_norm = normalize(resume_text)
-    matched = [k for k in draft.get("matched", []) if str(k).strip()]
-    missing = [k for k in draft.get("missing", []) if str(k).strip()]
+    # One entry for each keyword: a repeat would count twice in the coverage,
+    # and a keyword listed as both matched and missing stays matched.
+    seen = set()
+    matched = _keywords(draft.get("matched"), seen)
+    missing = _keywords(draft.get("missing"), seen)
 
     # A keyword the draft calls missing but that is in the text is matched.
     recovered = [k for k in missing if present(k, resume_norm)]
@@ -302,10 +353,14 @@ def check(resume_text, draft, today=None, job_text=None):
         keep = max(1, min(MAX_KEYWORDS - 1, keep)) if matched and missing else min(MAX_KEYWORDS, len(matched))
         matched, missing = matched[:keep], missing[: MAX_KEYWORDS - keep]
 
-    fit = min(100.0, max(0.0, float(draft.get("fit", 0))))
     total = len(matched) + len(missing)
     coverage = round(100 * len(matched) / total, 1) if total else None
-    score = round(0.6 * coverage + 0.4 * fit, 1) if total else round(fit, 1)
+    if "fit" not in draft and not total:
+        # Readability-only run: there is no job, so there is no score.
+        fit = score = None
+    else:
+        fit = _fit(draft.get("fit", 0))
+        score = round(0.6 * coverage + 0.4 * fit, 1) if total else round(fit, 1)
 
     resume_words = alnum_words(resume_text)
     job_norm = normalize(job_text) if job_text else None
@@ -328,13 +383,15 @@ def check(resume_text, draft, today=None, job_text=None):
         "matchedNotLiteral": [k for k in matched if not present(k, resume_norm)],
         "evidence": [
             {"quote": q, "found": evidence_in_resume(q, resume_words)}
-            for q in draft.get("evidence", [])
-            if str(q).strip()
+            for q in (draft.get("evidence") if isinstance(draft.get("evidence"), list) else [])
+            if isinstance(q, str) and q.strip()
         ],
         "dateFlags": date_flags(resume_text, today or datetime.now(timezone.utc)),
         # For the readability check: a resume under about 150 words is too
         # sparse for a keyword filter or a recruiter.
         "wordCount": len(resume_text.split()),
+        # None when the text can be checked; otherwise why it cannot.
+        "unreadable": unreadable(resume_text),
     }
     if job_norm is not None:
         # Keywords must come from the posting. One that is not in it, even as
@@ -343,20 +400,30 @@ def check(resume_text, draft, today=None, job_text=None):
     return result
 
 
+def _read(path):
+    # Text saved from a PDF is not always UTF-8; a few odd bytes should not
+    # stop the check.
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        return fh.read()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Verify a drafted ATS resume check.")
     parser.add_argument("--resume", required=True, help="plain-text resume file")
     parser.add_argument("--draft", help="JSON draft file (default: stdin)")
     parser.add_argument("--job", help="plain-text job posting; adds a check that keywords come from it")
     args = parser.parse_args()
-    with open(args.resume, encoding="utf-8") as fh:
-        resume_text = fh.read()
-    job_text = None
-    if args.job:
-        with open(args.job, encoding="utf-8") as fh:
-            job_text = fh.read()
-    raw = open(args.draft, encoding="utf-8").read() if args.draft else sys.stdin.read()
-    result = check(resume_text, json.loads(raw), job_text=job_text)
+    try:
+        resume_text = _read(args.resume)
+        job_text = _read(args.job) if args.job else None
+        raw = _read(args.draft) if args.draft else sys.stdin.read()
+        try:
+            draft = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"the draft is not valid JSON ({exc})")
+        result = check(resume_text, draft, job_text=job_text)
+    except (OSError, ValueError) as exc:
+        sys.exit(f"ats_check: {exc}")
     json.dump(result, sys.stdout, indent=2, ensure_ascii=False)
     sys.stdout.write("\n")
 
